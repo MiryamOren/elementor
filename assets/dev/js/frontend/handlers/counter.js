@@ -19,6 +19,7 @@ export default class Counter extends elementorModules.frontend.handlers.Base {
 
 		this.intersectionObserver = elementorModules.utils.Scroll.scrollObserver( {
 			callback: ( event ) => {
+
 				if ( event.isInViewport ) {
 					this.intersectionObserver.unobserve( this.elements.$counterNumber[ 0 ] );
 
