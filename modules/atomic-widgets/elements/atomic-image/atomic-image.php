@@ -9,9 +9,11 @@ use Elementor\Modules\AtomicWidgets\PropTypes\Link_Prop_Type;
 use Elementor\Modules\AtomicWidgets\Controls\Section;
 use Elementor\Modules\AtomicWidgets\Elements\Atomic_Widget_Base;
 use Elementor\Modules\AtomicWidgets\Controls\Types\Image_Control;
+use Elementor\Modules\AtomicWidgets\Controls\Types\Select_Control;
 use Elementor\Modules\AtomicWidgets\Image\Placeholder_Image;
 use Elementor\Modules\AtomicWidgets\Styles\Style_Definition;
 use Elementor\Modules\AtomicWidgets\Styles\Style_Variant;
+use Elementor\Modules\AtomicWidgets\Image\Image_Sizes;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
@@ -60,17 +62,20 @@ class Atomic_Image extends Atomic_Widget_Base {
 				->set_label( esc_html__( 'Content', 'elementor' ) )
 				->set_items( [
 					Image_Control::bind_to( 'image' )
-						->set_label( __( 'Image', 'elementor' ) )
-						->set_show_mode( 'media' ),
+						->set_items( [
+							Image_Src_Control::bind_to( 'src' )
+								->set_label( __( 'Image', 'elementor' ) )
+						] ),
 				] ),
 		];
 	}
 
 	protected function get_settings_controls(): array {
+		// Parent_Control::bind('image')->set_items[Select_Control::bind_to( 'image')];
 		return [
-			Image_Control::bind_to( 'image' )
+			Select_Control::bind_to( 'image', ['image', 'size'] )
 				->set_label( __( 'Image resolution', 'elementor' ) )
-				->set_show_mode( 'sizes' )
+				->set_options( Image_Sizes::get_all() )
 				->set_meta( [ 'layout' => 'two-columns' ] ),
 			Link_Control::bind_to( 'link' )
 				->set_label( __( 'Link', 'elementor' ) )
