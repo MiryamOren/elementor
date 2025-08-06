@@ -1,11 +1,15 @@
 import { injectIntoTop } from '@elementor/editor';
-import { ComponentCreateForm } from './components/component-create-form';
+import { CreateComponentForm } from './components/create-component-form';
+import { isExperimentActive } from '@elementor/editor-v1-adapters';
+import { EXPERIMENTAL_FEATURES } from '@elementor/editor-v1-adapters';
 
 export function init() {
-    console.log('init editor components' );
+	if ( ! isExperimentActive( EXPERIMENTAL_FEATURES.COMPONENTS ) ) {
+		return;
+	}
 
 	injectIntoTop( {
-		id: 'component-create-form',
-		component: ComponentCreateForm,
+		id: 'create-component-popup',
+		component: CreateComponentForm,
 	} );
 }

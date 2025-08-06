@@ -212,7 +212,7 @@ const DivBlockView = BaseElementView.extend( {
 			},
 		];
 
-		if ( elementorCommon.config.experimentalFeatures?.e_atomic_components ) {
+		if ( elementorCommon.config.experimentalFeatures?.e_components ) {
 			saveActions.unshift(			{
 				name: 'save-component',
 				title: __( 'Save as a component', 'elementor' ),
@@ -256,7 +256,7 @@ const DivBlockView = BaseElementView.extend( {
 		};
 
 		window.dispatchEvent( new CustomEvent(
-			'elementor/editor/open-save-as-component-popup',
+			'elementor/editor/open-save-as-component-form',
 			{
 				detail: {
 					componentContent,
