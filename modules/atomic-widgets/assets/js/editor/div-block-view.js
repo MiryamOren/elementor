@@ -245,8 +245,6 @@ const DivBlockView = BaseElementView.extend( {
 	},
 
 	saveAsComponent( openContextMenuEvent ) {
-		const componentContent = [ this.model.toJSON( { remove: [ 'default' ] } ) ];
-
 		// Calculate the absolute position where the context menu was opened.
 		const openMenuOriginalEvent = openContextMenuEvent.originalEvent;
 		const iframeRect = elementor.$preview[ 0 ].getBoundingClientRect();
@@ -259,7 +257,7 @@ const DivBlockView = BaseElementView.extend( {
 			'elementor/editor/open-save-as-component-form',
 			{
 				detail: {
-					componentContent,
+					element: elementor.getContainer( this.model.id ),
 					anchorPosition,
 				},
 			},
