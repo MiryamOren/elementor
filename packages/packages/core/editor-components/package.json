@@ -41,10 +41,13 @@
     },
     "dependencies": {
         "@elementor/editor": "3.32.0",
-        "@elementor/editor-styles-repository": "3.32.0",
+        "@elementor/editor-elements": "3.32.0",
+        "@elementor/editor-ui": "3.32.0",
+        "@elementor/editor-v1-adapters": "3.32.0",
         "@elementor/http-client": "3.32.0",
-        "@elementor/store": "3.32.0",
-        "@floating-ui/react": "^0.27.5"
+        "@elementor/icons": "1.46.0",
+        "@elementor/ui": "1.36.2",
+        "@wordpress/i18n": "^5.13.0"
     },
     "peerDependencies": {
         "react": "^18.3.1",
