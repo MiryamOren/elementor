@@ -3,45 +3,19 @@ import { type CSSProperties, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { __ } from '@wordpress/i18n';
 
+import { type BorderRadii, useBorderRadius } from '../../hooks/use-border-radius';
 import { useCanvasDocument } from '../../hooks/use-canvas-document';
 import { useElementRect } from '../../hooks/use-element-rect';
-
-type EllipticalRadius = {
-	rx: number;
-	ry: number;
-};
-
-export type BorderRadii = {
-	topLeft: EllipticalRadius;
-	topRight: EllipticalRadius;
-	bottomRight: EllipticalRadius;
-	bottomLeft: EllipticalRadius;
-};
-
-const DEFAULT_BORDER_RADII: BorderRadii = {
-	topLeft: { rx: 0, ry: 0 },
-	topRight: { rx: 0, ry: 0 },
-	bottomRight: { rx: 0, ry: 0 },
-	bottomLeft: { rx: 0, ry: 0 },
-};
-
-function parseBorderRadius(value: string): EllipticalRadius {
-	const parts = value.split(' ').map((v) => parseInt(v) || 0);
-	return {
-		rx: parts[0] ?? 0,
-		ry: parts[1] ?? parts[0] ?? 0,
-	};
-}
 
 type ModalProps = {
 	element: HTMLElement;
 	topLevelElement?: HTMLElement | null;
 	onClose: () => void;
-	borderRadius?: BorderRadii;
 };
 
 export function ComponentModal({ element, onClose, topLevelElement }: ModalProps) {
 	const canvasDocument = useCanvasDocument();
+	const borderRadius = useBorderRadius(topLevelElement ?? null);
 
 	useEffect(() => {
 		const handleEsc = (event: KeyboardEvent) => {
@@ -61,17 +35,6 @@ export function ComponentModal({ element, onClose, topLevelElement }: ModalProps
 		return null;
 	}
 
-	let borderRadius = DEFAULT_BORDER_RADII;
-	if (topLevelElement) {
-		const style = getComputedStyle(topLevelElement);
-		borderRadius = {
-			topLeft: parseBorderRadius(style.borderTopLeftRadius),
-			topRight: parseBorderRadius(style.borderTopRightRadius),
-			bottomRight: parseBorderRadius(style.borderBottomRightRadius),
-			bottomLeft: parseBorderRadius(style.borderBottomLeftRadius),
-		};
-	}
-
 	return createPortal(
 		<>
 			<BlockEditPage />
@@ -81,7 +44,7 @@ export function ComponentModal({ element, onClose, topLevelElement }: ModalProps
 	);
 }
 
-function Backdrop({ canvas, element, onClose, borderRadius = DEFAULT_BORDER_RADII }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void; borderRadius?: BorderRadii }) {
+function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void; borderRadius: BorderRadii }) {
 	const rect = useElementRect(element);
 	const viewport = canvas.defaultView as Window;
 
