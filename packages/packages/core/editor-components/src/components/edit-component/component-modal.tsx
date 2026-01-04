@@ -6,43 +6,85 @@ import { __ } from '@wordpress/i18n';
 import { useCanvasDocument } from '../../hooks/use-canvas-document';
 import { useElementRect } from '../../hooks/use-element-rect';
 
-type ModalProps = {
-	element: HTMLElement;
-	onClose: () => void;
+type EllipticalRadius = {
+	rx: number;
+	ry: number;
 };
 
-export function ComponentModal( { element, onClose }: ModalProps ) {
+export type BorderRadii = {
+	topLeft: EllipticalRadius;
+	topRight: EllipticalRadius;
+	bottomRight: EllipticalRadius;
+	bottomLeft: EllipticalRadius;
+};
+
+const DEFAULT_BORDER_RADII: BorderRadii = {
+	topLeft: { rx: 0, ry: 0 },
+	topRight: { rx: 0, ry: 0 },
+	bottomRight: { rx: 0, ry: 0 },
+	bottomLeft: { rx: 0, ry: 0 },
+};
+
+function parseBorderRadius(value: string): EllipticalRadius {
+	const parts = value.split(' ').map((v) => parseInt(v) || 0);
+	return {
+		rx: parts[0] ?? 0,
+		ry: parts[1] ?? parts[0] ?? 0,
+	};
+}
+
+type ModalProps = {
+	element: HTMLElement;
+	topLevelElement?: HTMLElement | null;
+	onClose: () => void;
+	borderRadius?: BorderRadii;
+};
+
+export function ComponentModal({ element, onClose, topLevelElement }: ModalProps) {
 	const canvasDocument = useCanvasDocument();
 
-	useEffect( () => {
-		const handleEsc = ( event: KeyboardEvent ) => {
-			if ( event.key === 'Escape' ) {
+	useEffect(() => {
+		const handleEsc = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
 				onClose();
 			}
 		};
 
-		canvasDocument?.body.addEventListener( 'keydown', handleEsc );
+		canvasDocument?.body.addEventListener('keydown', handleEsc);
 
 		return () => {
-			canvasDocument?.body.removeEventListener( 'keydown', handleEsc );
+			canvasDocument?.body.removeEventListener('keydown', handleEsc);
 		};
-	}, [ canvasDocument, onClose ] );
+	}, [canvasDocument, onClose]);
 
-	if ( ! canvasDocument?.body ) {
+	if (!canvasDocument?.body) {
 		return null;
+	}
+
+	let borderRadius = DEFAULT_BORDER_RADII;
+	if (topLevelElement) {
+		const style = getComputedStyle(topLevelElement);
+		borderRadius = {
+			topLeft: parseBorderRadius(style.borderTopLeftRadius),
+			topRight: parseBorderRadius(style.borderTopRightRadius),
+			bottomRight: parseBorderRadius(style.borderBottomRightRadius),
+			bottomLeft: parseBorderRadius(style.borderBottomLeftRadius),
+		};
 	}
 
 	return createPortal(
 		<>
 			<BlockEditPage />
-			<Backdrop canvas={ canvasDocument } element={ element } onClose={ onClose } />
+			<Backdrop canvas={canvasDocument} element={element} onClose={onClose} borderRadius={borderRadius} />
 		</>,
 		canvasDocument.body
 	);
 }
 
-function Backdrop( { canvas, element, onClose }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void } ) {
-	const rect = useElementRect( element );
+function Backdrop({ canvas, element, onClose, borderRadius = DEFAULT_BORDER_RADII }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void; borderRadius?: BorderRadii }) {
+	const rect = useElementRect(element);
+	const viewport = canvas.defaultView as Window;
+
 	const backdropStyle: CSSProperties = {
 		position: 'fixed',
 		top: 0,
@@ -53,57 +95,97 @@ function Backdrop( { canvas, element, onClose }: { canvas: HTMLDocument; element
 		zIndex: 999,
 		pointerEvents: 'painted',
 		cursor: 'pointer',
-		clipPath: getRoundedRectPath( rect, canvas.defaultView as Window, 5 ),
+		clipPath: getRectangularCutoutPath(rect, viewport),
 	};
 
-	const handleKeyDown = ( event: React.KeyboardEvent ) => {
-		if ( event.key === 'Enter' || event.key === ' ' ) {
+	const handleKeyDown = (event: React.KeyboardEvent) => {
+		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
 			onClose();
 		}
 	};
 
 	return (
-		<div
-			style={ backdropStyle }
-			onClick={ onClose }
-			onKeyDown={ handleKeyDown }
-			role="button"
-			tabIndex={ 0 }
-			aria-label={ __( 'Exit component editing mode', 'elementor' ) }
-		/>
+		<>
+			<div
+				style={backdropStyle}
+				onClick={onClose}
+				onKeyDown={handleKeyDown}
+				role="button"
+				tabIndex={0}
+				aria-label={__('Exit component editing mode', 'elementor')}
+			/>
+			<CornerOverlays rect={rect} borderRadius={borderRadius} />
+		</>
 	);
 }
 
-function getRoundedRectPath( rect: DOMRect, viewport: Window, borderRadius: number ) {
-	const padding = borderRadius / 2;
-	const { x: originalX, y: originalY, width: originalWidth, height: originalHeight } = rect;
-	const x = originalX - padding;
-	const y = originalY - padding;
-	const width = originalWidth + 2 * padding;
-	const height = originalHeight + 2 * padding;
-	const radius = Math.min( borderRadius, width / 2, height / 2 );
+function CornerOverlays({ rect, borderRadius }: { rect: DOMRect; borderRadius: BorderRadii }) {
+	const baseStyle: CSSProperties = {
+		position: 'fixed',
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		zIndex: 999,
+		pointerEvents: 'none',
+	};
 
+	const corners = [
+		{
+			key: 'top-left',
+			style: {
+				top: rect.top,
+				left: rect.left,
+				width: borderRadius.topLeft.rx,
+				height: borderRadius.topLeft.ry,
+				clipPath: `path('M 0 ${borderRadius.topLeft.ry} L 0 0 L ${borderRadius.topLeft.rx} 0 A ${borderRadius.topLeft.rx} ${borderRadius.topLeft.ry} 0 0 0 0 ${borderRadius.topLeft.ry} Z')`,
+			},
+		},
+		{
+			key: 'top-right',
+			style: {
+				top: rect.top,
+				left: rect.right - borderRadius.topRight.rx,
+				width: borderRadius.topRight.rx,
+				height: borderRadius.topRight.ry,
+				clipPath: `path('M 0 0 L ${borderRadius.topRight.rx} 0 L ${borderRadius.topRight.rx} ${borderRadius.topRight.ry} A ${borderRadius.topRight.rx} ${borderRadius.topRight.ry} 0 0 0 0 0 Z')`,
+			},
+		},
+		{
+			key: 'bottom-right',
+			style: {
+				top: rect.bottom - borderRadius.bottomRight.ry,
+				left: rect.right - borderRadius.bottomRight.rx,
+				width: borderRadius.bottomRight.rx,
+				height: borderRadius.bottomRight.ry,
+				clipPath: `path('M ${borderRadius.bottomRight.rx} 0 L ${borderRadius.bottomRight.rx} ${borderRadius.bottomRight.ry} L 0 ${borderRadius.bottomRight.ry} A ${borderRadius.bottomRight.rx} ${borderRadius.bottomRight.ry} 0 0 0 ${borderRadius.bottomRight.rx} 0 Z')`,
+			},
+		},
+		{
+			key: 'bottom-left',
+			style: {
+				top: rect.bottom - borderRadius.bottomLeft.ry,
+				left: rect.left,
+				width: borderRadius.bottomLeft.rx,
+				height: borderRadius.bottomLeft.ry,
+				clipPath: `path('M 0 0 A ${borderRadius.bottomLeft.rx} ${borderRadius.bottomLeft.ry} 0 0 0 ${borderRadius.bottomLeft.rx} ${borderRadius.bottomLeft.ry} L 0 ${borderRadius.bottomLeft.ry} L 0 0 Z')`,
+			},
+		},
+	];
+
+	return (
+		<>
+			{corners.map(({ key, style }) => (
+				<div key={key} style={{ ...baseStyle, ...style }} />
+			))}
+		</>
+	);
+}
+
+function getRectangularCutoutPath(rect: DOMRect, viewport: Window): string {
 	const { innerWidth: vw, innerHeight: vh } = viewport;
+	const { x, y, width, height } = rect;
 
-	const path = `path(evenodd, 'M 0 0 
-		L ${ vw } 0
-		L ${ vw } ${ vh }
-		L 0 ${ vh }
-		Z
-		M ${ x + radius } ${ y }
-		L ${ x + width - radius } ${ y }
-		A ${ radius } ${ radius } 0 0 1 ${ x + width } ${ y + radius }
-		L ${ x + width } ${ y + height - radius }
-		A ${ radius } ${ radius } 0 0 1 ${ x + width - radius } ${ y + height }
-		L ${ x + radius } ${ y + height }
-		A ${ radius } ${ radius } 0 0 1 ${ x } ${ y + height - radius }
-		L ${ x } ${ y + radius }
-		A ${ radius } ${ radius } 0 0 1 ${ x + radius } ${ y }
-    	Z'
-	)`;
-
-	return path.replace( /\s{2,}/g, ' ' );
+	const path = `path(evenodd, 'M 0 0 L ${vw} 0 L ${vw} ${vh} L 0 ${vh} Z M ${x} ${y} L ${x + width} ${y} L ${x + width} ${y + height} L ${x} ${y + height} Z')`;
+	return path;
 }
 
 /**
@@ -131,5 +213,5 @@ function BlockEditPage() {
 	}
 	`;
 
-	return <style data-e-style-id="e-block-v3-document-handles-styles">{ blockV3DocumentHandlesStyles }</style>;
+	return <style data-e-style-id="e-block-v3-document-handles-styles">{blockV3DocumentHandlesStyles}</style>;
 }

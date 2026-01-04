@@ -22,13 +22,13 @@ export function EditComponent() {
 
 	const onClose = throttle( navigateBack, 100 );
 
-	const elementDom = getComponentDOMElement( currentComponentId ?? undefined );
+	const { elementDom, topLevelElement } = getComponentDOMElement( currentComponentId ?? undefined );
 
 	if ( ! elementDom ) {
 		return null;
 	}
 
-	return <ComponentModal element={ elementDom } onClose={ onClose } />;
+	return <ComponentModal element={ elementDom } onClose={ onClose } topLevelElement={ topLevelElement } />;
 }
 
 function useHandleDocumentSwitches() {
@@ -112,9 +112,9 @@ function getInstanceTitle( instanceId: string | undefined, path: ComponentsPathI
 	return editorSettings?.title;
 }
 
-function getComponentDOMElement( id: V1Document[ 'id' ] | undefined ) {
+function getComponentDOMElement( id: V1Document[ 'id' ] | undefined ): { elementDom: HTMLElement | null; topLevelElement: HTMLElement | null } {
 	if ( ! id ) {
-		return null;
+		return { elementDom: null, topLevelElement: null };
 	}
 
 	const documentsManager = getV1DocumentsManager();
@@ -123,7 +123,8 @@ function getComponentDOMElement( id: V1Document[ 'id' ] | undefined ) {
 
 	const widget = currentComponent?.container as V1Element;
 	const container = ( widget?.view?.el?.children?.[ 0 ] ?? null ) as HTMLElement | null;
-	const elementDom = container?.children[ 0 ] as HTMLElement | null;
+	const elementDom = ( container?.children[ 0 ] ?? null ) as HTMLElement | null;
+	const topLevelElement = widget?.children?.[ 0 ]?.view?.el ?? null as HTMLElement | null;
 
-	return elementDom ?? null;
+	return { elementDom, topLevelElement };
 }
