@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { type CSSProperties, useEffect } from 'react';
+import { type CSSProperties, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { __ } from '@wordpress/i18n';
 
-import { type BorderRadii, useBorderRadius } from '../../hooks/use-border-radius';
+import { type BorderRadius, useBorderRadius } from '../../hooks/use-border-radius';
 import { useCanvasDocument } from '../../hooks/use-canvas-document';
 import { useElementRect } from '../../hooks/use-element-rect';
 
@@ -44,9 +44,31 @@ export function ComponentModal({ element, onClose, topLevelElement }: ModalProps
 	);
 }
 
-function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void; borderRadius: BorderRadii }) {
+function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocument; element: HTMLElement; onClose: () => void; borderRadius: BorderRadius }) {
 	const rect = useElementRect(element);
 	const viewport = canvas.defaultView as Window;
+	const backdropRef = useRef<HTMLDivElement>(null);
+	const clickBlockerRef = useRef<HTMLDivElement>(null);
+
+	const updatePositions = useCallback(() => {
+		const currentRect = element.getBoundingClientRect();
+
+		if (backdropRef.current && viewport) {
+			backdropRef.current.style.clipPath = getRoundedCutoutPath(currentRect, viewport, borderRadius);
+		}
+
+		if (clickBlockerRef.current) {
+			clickBlockerRef.current.style.transform = `translate(${currentRect.left}px, ${currentRect.top}px)`;
+		}
+	}, [element, viewport, borderRadius]);
+
+	useEffect(() => {
+		const win = element.ownerDocument?.defaultView;
+		if (!win) return;
+
+		win.addEventListener('scroll', updatePositions, { passive: true });
+		return () => win.removeEventListener('scroll', updatePositions);
+	}, [element, updatePositions]);
 
 	const backdropStyle: CSSProperties = {
 		position: 'fixed',
@@ -58,7 +80,20 @@ function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocu
 		zIndex: 999,
 		pointerEvents: 'painted',
 		cursor: 'pointer',
-		clipPath: getRectangularCutoutPath(rect, viewport),
+		clipPath: getRoundedCutoutPath(rect, viewport, borderRadius),
+		willChange: 'clip-path',
+	};
+
+	const clickBlockerStyle: CSSProperties = {
+		position: 'fixed',
+		top: 0,
+		left: 0,
+		width: rect.width,
+		height: rect.height,
+		transform: `translate(${rect.left}px, ${rect.top}px)`,
+		zIndex: 1000,
+		pointerEvents: 'none',
+		cursor: 'default',
 	};
 
 	const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -71,6 +106,7 @@ function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocu
 	return (
 		<>
 			<div
+				ref={backdropRef}
 				style={backdropStyle}
 				onClick={onClose}
 				onKeyDown={handleKeyDown}
@@ -78,77 +114,34 @@ function Backdrop({ canvas, element, onClose, borderRadius }: { canvas: HTMLDocu
 				tabIndex={0}
 				aria-label={__('Exit component editing mode', 'elementor')}
 			/>
-			<CornerOverlays rect={rect} borderRadius={borderRadius} />
+			<div ref={clickBlockerRef} style={clickBlockerStyle} />
 		</>
 	);
 }
 
-function CornerOverlays({ rect, borderRadius }: { rect: DOMRect; borderRadius: BorderRadii }) {
-	const baseStyle: CSSProperties = {
-		position: 'fixed',
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		zIndex: 999,
-		pointerEvents: 'none',
-	};
-
-	const corners = [
-		{
-			key: 'top-left',
-			style: {
-				top: rect.top,
-				left: rect.left,
-				width: borderRadius.topLeft.rx,
-				height: borderRadius.topLeft.ry,
-				clipPath: `path('M 0 ${borderRadius.topLeft.ry} L 0 0 L ${borderRadius.topLeft.rx} 0 A ${borderRadius.topLeft.rx} ${borderRadius.topLeft.ry} 0 0 0 0 ${borderRadius.topLeft.ry} Z')`,
-			},
-		},
-		{
-			key: 'top-right',
-			style: {
-				top: rect.top,
-				left: rect.right - borderRadius.topRight.rx,
-				width: borderRadius.topRight.rx,
-				height: borderRadius.topRight.ry,
-				clipPath: `path('M 0 0 L ${borderRadius.topRight.rx} 0 L ${borderRadius.topRight.rx} ${borderRadius.topRight.ry} A ${borderRadius.topRight.rx} ${borderRadius.topRight.ry} 0 0 0 0 0 Z')`,
-			},
-		},
-		{
-			key: 'bottom-right',
-			style: {
-				top: rect.bottom - borderRadius.bottomRight.ry,
-				left: rect.right - borderRadius.bottomRight.rx,
-				width: borderRadius.bottomRight.rx,
-				height: borderRadius.bottomRight.ry,
-				clipPath: `path('M ${borderRadius.bottomRight.rx} 0 L ${borderRadius.bottomRight.rx} ${borderRadius.bottomRight.ry} L 0 ${borderRadius.bottomRight.ry} A ${borderRadius.bottomRight.rx} ${borderRadius.bottomRight.ry} 0 0 0 ${borderRadius.bottomRight.rx} 0 Z')`,
-			},
-		},
-		{
-			key: 'bottom-left',
-			style: {
-				top: rect.bottom - borderRadius.bottomLeft.ry,
-				left: rect.left,
-				width: borderRadius.bottomLeft.rx,
-				height: borderRadius.bottomLeft.ry,
-				clipPath: `path('M 0 0 A ${borderRadius.bottomLeft.rx} ${borderRadius.bottomLeft.ry} 0 0 0 ${borderRadius.bottomLeft.rx} ${borderRadius.bottomLeft.ry} L 0 ${borderRadius.bottomLeft.ry} L 0 0 Z')`,
-			},
-		},
-	];
-
-	return (
-		<>
-			{corners.map(({ key, style }) => (
-				<div key={key} style={{ ...baseStyle, ...style }} />
-			))}
-		</>
-	);
-}
-
-function getRectangularCutoutPath(rect: DOMRect, viewport: Window): string {
+function getRoundedCutoutPath(rect: DOMRect, viewport: Window, borderRadius: BorderRadius): string {
 	const { innerWidth: vw, innerHeight: vh } = viewport;
 	const { x, y, width, height } = rect;
+	const { topLeft: tl, topRight: tr, bottomRight: br, bottomLeft: bl } = borderRadius;
 
-	const path = `path(evenodd, 'M 0 0 L ${vw} 0 L ${vw} ${vh} L 0 ${vh} Z M ${x} ${y} L ${x + width} ${y} L ${x + width} ${y + height} L ${x} ${y + height} Z')`;
-	return path;
+	const path = `path(evenodd, 'M 0 0 
+		L ${vw} 0
+		L ${vw} ${vh}
+		L 0 ${vh}
+		Z
+		M ${x + tl.rx} ${y}
+		L ${x + width - tr.rx} ${y}
+		A ${tr.rx} ${tr.ry} 0 0 1 ${x + width} ${y + tr.ry}
+		L ${x + width} ${y + height - br.ry}
+		A ${br.rx} ${br.ry} 0 0 1 ${x + width - br.rx} ${y + height}
+		L ${x + bl.rx} ${y + height}
+		A ${bl.rx} ${bl.ry} 0 0 1 ${x} ${y + height - bl.ry}
+		L ${x} ${y + tl.ry}
+		A ${tl.rx} ${tl.ry} 0 0 1 ${x + tl.rx} ${y}
+		Z
+	')`;
+
+	return path.replace(/\s{2,}/g, ' ');
 }
 
 /**

@@ -5,14 +5,14 @@ type EllipticalRadius = {
     ry: number;
 };
 
-export type BorderRadii = {
+export type BorderRadius = {
     topLeft: EllipticalRadius;
     topRight: EllipticalRadius;
     bottomRight: EllipticalRadius;
     bottomLeft: EllipticalRadius;
 };
 
-const DEFAULT_BORDER_RADII: BorderRadii = {
+const DEFAULT_BORDER_RADIUS: BorderRadius = {
     topLeft: { rx: 0, ry: 0 },
     topRight: { rx: 0, ry: 0 },
     bottomRight: { rx: 0, ry: 0 },
@@ -38,23 +38,53 @@ function parseBorderRadius(value: string, width: number, height: number): Ellipt
     };
 }
 
-function getBorderRadii(element: HTMLElement | null): BorderRadii {
+function applyCornerOverlapScaling(radii: BorderRadius, width: number, height: number): BorderRadius {
+    const { topLeft: tl, topRight: tr, bottomRight: br, bottomLeft: bl } = radii;
+
+    const scalingFactors = [
+        (tl.rx + tr.rx) > 0 ? width / (tl.rx + tr.rx) : Infinity,
+        (tr.ry + br.ry) > 0 ? height / (tr.ry + br.ry) : Infinity,
+        (br.rx + bl.rx) > 0 ? width / (br.rx + bl.rx) : Infinity,
+        (bl.ry + tl.ry) > 0 ? height / (bl.ry + tl.ry) : Infinity,
+    ];
+
+    const minFactor = Math.min(...scalingFactors);
+
+    if (minFactor >= 1) {
+        return radii;
+    }
+
+    return {
+        topLeft: { rx: tl.rx * minFactor, ry: tl.ry * minFactor },
+        topRight: { rx: tr.rx * minFactor, ry: tr.ry * minFactor },
+        bottomRight: { rx: br.rx * minFactor, ry: br.ry * minFactor },
+        bottomLeft: { rx: bl.rx * minFactor, ry: bl.ry * minFactor },
+    };
+}
+
+function getBorderRadii(element: HTMLElement | null): BorderRadius {
+    // return DEFAULT_BORDER_RADIUS
     if (!element) {
-        return DEFAULT_BORDER_RADII;
+        return DEFAULT_BORDER_RADIUS;
     }
 
     const style = getComputedStyle(element);
-    const { width, height } = element.getBoundingClientRect();
+    const width = parseFloat(style.width);
+    const height = parseFloat(style.height);
 
-    return {
+    const rawRadii: BorderRadius = {
         topLeft: parseBorderRadius(style.borderTopLeftRadius, width, height),
         topRight: parseBorderRadius(style.borderTopRightRadius, width, height),
         bottomRight: parseBorderRadius(style.borderBottomRightRadius, width, height),
         bottomLeft: parseBorderRadius(style.borderBottomLeftRadius, width, height),
     };
+
+    return applyCornerOverlapScaling(rawRadii, width, height);
+
+   
 }
 
-function areBorderRadiiEqual(a: BorderRadii, b: BorderRadii): boolean {
+function areBorderRadiiEqual(a: BorderRadius, b: BorderRadius): boolean {
     return (
         a.topLeft.rx === b.topLeft.rx &&
         a.topLeft.ry === b.topLeft.ry &&
@@ -67,14 +97,14 @@ function areBorderRadiiEqual(a: BorderRadii, b: BorderRadii): boolean {
     );
 }
 
-export function useBorderRadius(element: HTMLElement | null): BorderRadii {
-    const [borderRadii, setBorderRadii] = useState<BorderRadii>(() => getBorderRadii(element));
-    const lastValueRef = useRef<BorderRadii>(borderRadii);
+export function useBorderRadius(element: HTMLElement | null): BorderRadius {
+    const [borderRadius, setBorderRadius] = useState<BorderRadius>(() => getBorderRadii(element));
+    const lastValueRef = useRef<BorderRadius>(borderRadius);
 
     useEffect(() => {
         if (!element) {
-            setBorderRadii(DEFAULT_BORDER_RADII);
-            lastValueRef.current = DEFAULT_BORDER_RADII;
+            setBorderRadius(DEFAULT_BORDER_RADIUS);
+            lastValueRef.current = DEFAULT_BORDER_RADIUS;
             return;
         }
 
@@ -84,8 +114,9 @@ export function useBorderRadius(element: HTMLElement | null): BorderRadii {
             const currentValue = getBorderRadii(element);
 
             if (!areBorderRadiiEqual(currentValue, lastValueRef.current)) {
+                console.log('border radius changed', currentValue);
                 lastValueRef.current = currentValue;
-                setBorderRadii(currentValue);
+                setBorderRadius(currentValue);
             }
 
             animationFrameId = requestAnimationFrame(checkForChanges);
@@ -98,6 +129,6 @@ export function useBorderRadius(element: HTMLElement | null): BorderRadii {
         };
     }, [element]);
 
-    return borderRadii;
+    return borderRadius;
 }
 

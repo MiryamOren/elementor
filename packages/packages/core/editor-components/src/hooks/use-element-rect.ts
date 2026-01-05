@@ -4,24 +4,20 @@ import { throttle } from '@elementor/utils';
 export function useElementRect( element: HTMLElement | null ) {
 	const [ rect, setRect ] = useState< DOMRect >( new DOMRect( 0, 0, 0, 0 ) );
 
-	const onChange = throttle(
-		() => {
+	const onChange = () => {
 			setRect( element?.getBoundingClientRect() ?? new DOMRect( 0, 0, 0, 0 ) );
-		},
-		20,
-		true
-	);
+	};
 
 	useScrollListener( { element, onChange } );
 	useResizeListener( { element, onChange } );
 	useMutationsListener( { element, onChange } );
 
-	useEffect(
-		() => () => {
-			onChange.cancel();
-		},
-		[ onChange ]
-	);
+	// useEffect(
+	// 	() => () => {
+	// 		onChange.cancel();
+	// 	},
+	// 	[ onChange ]
+	// );
 
 	return rect;
 }
