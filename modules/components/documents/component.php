@@ -103,4 +103,41 @@ class Component extends Document {
 
 		return $result;
 	}
+
+	public function get_export_data() {
+		$data = parent::get_export_data();
+
+		// #region agent log
+		$log_path = '/Users/miryamo/Dev/elementor/.cursor/debug.log';
+		$log_entry = json_encode( [ 'location' => 'component.php:get_export_data', 'message' => 'Component export data', 'data' => [ 'post_id' => $this->get_main_id(), 'component_uid' => $this->get_meta( self::COMPONENT_UID_META_KEY ), 'overridable_props_exists' => ! empty( $this->get_meta( self::OVERRIDABLE_PROPS_META_KEY ) ), 'metadata_keys_before' => array_keys( $data['metadata'] ?? [] ) ], 'timestamp' => time(), 'sessionId' => 'debug-session', 'hypothesisId' => 'export' ] ) . "\n";
+		file_put_contents( $log_path, $log_entry, FILE_APPEND );
+		// #endregion
+
+		$component_uid = $this->get_meta( self::COMPONENT_UID_META_KEY );
+		if ( $component_uid ) {
+			$data['metadata'][ self::COMPONENT_UID_META_KEY ] = $component_uid;
+		}
+
+		$overridable_props = $this->get_meta( self::OVERRIDABLE_PROPS_META_KEY );
+		if ( $overridable_props ) {
+			$data['metadata'][ self::OVERRIDABLE_PROPS_META_KEY ] = $overridable_props;
+		}
+
+		$archived = $this->get_meta( self::ARCHIVED_META_KEY );
+		if ( $archived ) {
+			$data['metadata'][ self::ARCHIVED_META_KEY ] = $archived;
+		}
+
+		$archived_at = $this->get_meta( self::ARCHIVED_AT_META_KEY );
+		if ( $archived_at ) {
+			$data['metadata'][ self::ARCHIVED_AT_META_KEY ] = $archived_at;
+		}
+
+		// #region agent log
+		$log_entry2 = json_encode( [ 'location' => 'component.php:get_export_data:after', 'message' => 'Component export data after adding meta', 'data' => [ 'metadata_keys_after' => array_keys( $data['metadata'] ?? [] ), 'has_component_uid' => isset( $data['metadata'][ self::COMPONENT_UID_META_KEY ] ), 'has_overridable_props' => isset( $data['metadata'][ self::OVERRIDABLE_PROPS_META_KEY ] ) ], 'timestamp' => time(), 'sessionId' => 'debug-session', 'hypothesisId' => 'export' ] ) . "\n";
+		file_put_contents( $log_path, $log_entry2, FILE_APPEND );
+		// #endregion
+
+		return $data;
+	}
 }

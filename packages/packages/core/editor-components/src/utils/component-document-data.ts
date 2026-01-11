@@ -6,7 +6,13 @@ export const getComponentDocumentData = async ( id: number ) => {
 	const documentManager = getV1DocumentsManager();
 
 	try {
-		return await documentManager.request< ComponentDocumentData >( id );
+		const document = await documentManager.request< ComponentDocumentData >( id );
+
+		if ( ! document || 'elementor_component' !== document.type.value ) {
+			return null;
+		}
+
+		return document;
 	} catch {
 		return null;
 	}
