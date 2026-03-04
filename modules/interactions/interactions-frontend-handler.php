@@ -53,7 +53,7 @@ class Interactions_Frontend_Handler {
 	 * @param array                  $elements  Array of element data.
 	 * @param Interactions_Collector $collector The collector instance.
 	 */
-	private function collect_interactions_recursive( $elements, $collector ) {
+	public function collect_interactions_recursive( $elements, $collector ) {
 		if ( ! is_array( $elements ) ) {
 			return;
 		}
