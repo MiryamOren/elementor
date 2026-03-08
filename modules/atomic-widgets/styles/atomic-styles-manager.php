@@ -21,6 +21,11 @@ class Atomic_Styles_Manager {
 	 */
 	private array $registered_styles_by_key = [];
 
+	/**
+	 * @var array<string, array{get_styles: callable, path: array<string>}>
+	 */
+	private array $registered_inline_styles_by_key = [];
+
 	private Cache_Validity $cache_validity;
 
 	private array $post_ids = [];
@@ -63,6 +68,15 @@ class Atomic_Styles_Manager {
 		];
 	}
 
+	public function register_inline( array $path, callable $get_style_defs ) {
+		$key = $this->convert_path_to_handle( $path );
+
+		$this->registered_inline_styles_by_key[ $key ] = [
+			'get_styles' => $get_style_defs,
+			'path' => $path,
+		];
+	}
+
 	private function enqueue_styles() {
 		if ( empty( $this->post_ids ) ) {
 			return;
@@ -84,6 +98,8 @@ class Atomic_Styles_Manager {
 		$this->before_render( $styles_by_key );
 
 		$this->render( $styles_by_key );
+
+		$this->render_inline_styles();
 
 		$this->after_render( $styles_by_key );
 	}
@@ -145,6 +161,51 @@ class Atomic_Styles_Manager {
 					$version,
 					$style_file->get_media()
 				);
+			}
+		}
+	}
+
+	private function render_inline_styles() {
+		if ( empty( $this->registered_inline_styles_by_key ) ) {
+			return;
+		}
+
+		$breakpoints = $this->get_breakpoints();
+
+		foreach ( $this->registered_inline_styles_by_key as $style_key => $style_params ) {
+			$styles = call_user_func( $style_params['get_styles'] );
+
+			if ( empty( $styles ) ) {
+				continue;
+			}
+
+			$grouped = $this->group_by_breakpoint( $styles );
+
+			foreach ( $breakpoints as $breakpoint_key ) {
+				$breakpoint_styles = $grouped[ $breakpoint_key ] ?? [];
+
+				if ( empty( $breakpoint_styles ) ) {
+					continue;
+				}
+
+				$css = $this->render_css( $breakpoint_styles, $style_key . '-dynamic' );
+
+				if ( empty( $css ) ) {
+					continue;
+				}
+
+				$breakpoint_media = $this->get_breakpoint_media( $breakpoint_key );
+
+				if ( ! $breakpoint_media || 'all' === $breakpoint_media ) {
+					$inline_css = $css;
+				} else {
+					$inline_css = $breakpoint_media . '{' . $css . '}';
+				}
+
+				$handle = 'elementor-atomic-dynamic-' . $style_key . '-' . $breakpoint_key;
+				wp_register_style( $handle, false );
+				wp_enqueue_style( $handle );
+				wp_add_inline_style( $handle, $inline_css );
 			}
 		}
 	}

@@ -13,6 +13,8 @@ class Atomic_Widget_Styles {
 	const CONTEXT_FRONTEND = 'frontend';
 	const CONTEXT_PREVIEW = 'preview';
 
+	private array $parsed_styles_cache = [];
+
 	public function register_hooks() {
 		add_action( 'elementor/atomic-widgets/styles/register', function( Atomic_Styles_Manager $styles_manager, array $post_ids ) {
 			$this->register_styles( $styles_manager, $post_ids );
@@ -41,20 +43,44 @@ class Atomic_Widget_Styles {
 		$context = $this->get_context( is_preview() );
 
 		foreach ( $post_ids as $post_id ) {
-			$get_styles = fn() => $this->parse_post_styles( $post_id );
+			$get_styles = fn() => $this->get_static_styles( $post_id );
+			$get_dynamic_styles = fn() => $this->get_dynamic_styles( $post_id );
 
 			$styles_manager->register( [ self::STYLES_KEY, $post_id, $context ], $get_styles );
+			$styles_manager->register_inline( [ self::STYLES_KEY, $post_id, $context ], $get_dynamic_styles );
 		}
 	}
 
+	private function get_static_styles( int $post_id ): array {
+		$all_styles = $this->parse_post_styles( $post_id );
+
+		return array_values( array_filter( $all_styles, fn( $style ) => ! self::style_has_dynamic_tags( $style ) ) );
+	}
+
+	private function get_dynamic_styles( int $post_id ): array {
+		$all_styles = $this->parse_post_styles( $post_id );
+
+		return array_values( array_filter( $all_styles, fn( $style ) => self::style_has_dynamic_tags( $style ) ) );
+	}
+
+	private static function style_has_dynamic_tags( array $style ): bool {
+		return false !== strpos( wp_json_encode( $style ), '"$$type":"dynamic"' );
+	}
+
 	private function parse_post_styles( $post_id ) {
+		if ( isset( $this->parsed_styles_cache[ $post_id ] ) ) {
+			return $this->parsed_styles_cache[ $post_id ];
+		}
+
 		$post_styles = [];
 
 		Utils::traverse_post_elements( $post_id, function( $element_data ) use ( &$post_styles ) {
 			$post_styles = array_merge( $post_styles, $this->parse_element_style( $element_data ) );
 		} );
 
-		return self::get_license_based_filtered_styles( $post_styles );
+		$this->parsed_styles_cache[ $post_id ] = self::get_license_based_filtered_styles( $post_styles );
+
+		return $this->parsed_styles_cache[ $post_id ];
 	}
 
 	private function parse_element_style( array $element_data ) {
