@@ -83,10 +83,16 @@ export type {
 } from './types';
 
 export { filterValidOverridableProps } from './utils/filter-valid-overridable-props';
+export {
+	unwrapOverridableValues,
+	extractOverridableMap,
+	rewrapOverridableValues,
+} from './utils/overridable-dependency-utils';
 export { getContainerByOriginId } from './utils/get-container-by-origin-id';
 export { getOverridableProp } from './utils/get-overridable-prop';
 export { getPropTypeForComponentOverride } from './utils/get-prop-type-for-component-override';
 export { isComponentInstance } from './utils/is-component-instance';
+export { resolveInstanceSettingsForDependencies } from './utils/resolve-instance-settings-for-dependencies';
 export { resolveOverridePropValue } from './utils/resolve-override-prop-value';
 export { switchToComponent } from './utils/switch-to-component';
 export { onElementDrop, trackComponentEvent } from './utils/tracking';

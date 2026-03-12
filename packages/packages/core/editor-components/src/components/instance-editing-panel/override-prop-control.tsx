@@ -46,6 +46,7 @@ import { type OriginPropFields, type OverridableProp, type OverridableProps } fr
 import { getContainerByOriginId } from '../../utils/get-container-by-origin-id';
 import { getPropTypeForComponentOverride } from '../../utils/get-prop-type-for-component-override';
 import { getMatchingOverride } from '../../utils/overridable-props-utils';
+import { resolveInstanceSettingsForDependencies } from '../../utils/resolve-instance-settings-for-dependencies';
 import { resolveOverridePropValue } from '../../utils/resolve-override-prop-value';
 import { ControlLabel } from '../control-label';
 import { OverrideControlInnerElementNotFoundError } from '../errors';
@@ -189,7 +190,14 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 		return null;
 	}
 
-	const settings = getElementSettings< AnyTransformable >( elementId, Object.keys( elementType.propsSchema ) );
+	const rawSettings = getElementSettings< AnyTransformable >( elementId, Object.keys( elementType.propsSchema ) );
+
+	const resolvedSettings = resolveInstanceSettingsForDependencies( {
+		elementSettings: rawSettings,
+		elementId: originElementId,
+		overridableProps,
+		overrides: overrides ?? [],
+	} );
 
 	const propTypeSchema = createTopLevelObjectType( {
 		schema: {
@@ -202,15 +210,16 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 			value={ componentOverridablePropTypeUtil.extract( matchingOverride ) ?? undefined }
 			componentInstanceElement={ componentInstanceElement }
 		>
-			<ElementProvider element={ { id: elementId, type } } elementType={ elementType } settings={ settings }>
+			<ElementProvider
+				element={ { id: elementId, type } }
+				elementType={ elementType }
+				settings={ resolvedSettings as Record< string, AnyTransformable | null > }
+			>
 				<SettingsField bind={ propKey } propDisplayName={ overridableProp.label }>
 					<PropProvider
 						propType={ propTypeSchema }
 						value={ value }
 						setValue={ setValue }
-						isDisabled={ () => {
-							return false;
-						} }
 					>
 						<PropKeyProvider bind={ overridableProp.overrideKey }>
 							<ControlReplacementsProvider replacements={ controlReplacements }>
