@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { ControlReplacementsProvider, getControlReplacements, PropProvider, useBoundProp } from '@elementor/editor-controls';
+import {
+	ControlReplacementsProvider,
+	getControlReplacements,
+	PropKeyProvider,
+	PropProvider,
+	useBoundProp,
+	usePropContext,
+} from '@elementor/editor-controls';
 import {
 	BaseControl,
 	controlsRegistry,
@@ -46,6 +53,7 @@ import { resolveInstanceSettingsForDependencies } from '../../utils/resolve-inst
 import { resolveOverridePropValue } from '../../utils/resolve-override-prop-value';
 import { ControlLabel } from '../control-label';
 import { OverrideControlInnerElementNotFoundError } from '../errors';
+import { useResolvedOriginValue } from './use-resolved-origin-value';
 
 type Props = {
 	overrideKey: string;
@@ -87,7 +95,7 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 
 	const matchingOverride = getMatchingOverride( overrides, overridableProp.overrideKey );
 
-	// const recursiveOriginValue = useResolvedOriginValue( matchingOverride, overridableProp );
+	const recursiveOriginValue = useResolvedOriginValue( matchingOverride, overridableProp );
 
 	if ( ! componentId ) {
 		throw new Error( 'Component ID is required' );
@@ -104,12 +112,12 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 		return <Box sx={ { border: '1px solid red' } }>No prop type!</Box>;
 	}
 
-	// const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
-	// const propValue = resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue;
+	const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
+	const propValue = resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue;
 
-	// const value = {
-	// 	[ overridableProp.overrideKey ]: propValue,
-	// } as OverridesSchema;
+	const value = {
+		[ overridableProp.overrideKey ]: propValue,
+	} as OverridesSchema;
 
 	const setValue = ( changedValues: Record< string, AnyTransformable | null > ) => {
 		if ( ! overridableProps ) {
@@ -266,31 +274,25 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 
 	console.log( `resolvedSettings for ${ propTypeSchema.key }`, resolvedSettings );
 
-	const value = {
-		[ overridableProp.overrideKey ]: propValue,
-	} as OverridesSchema;
+	// const value = {
+	// 	[ overridableProp.overrideKey ]: propValue,
+	// } as OverridesSchema;
 	return (
-		<div style={ { border: '1px solid pink' } }>
-			<p>
-				Override Prop Control :{ overridableProp.label }: { overridableProp.propKey }
-			</p>
-			<OverridablePropProvider
-				value={ componentOverridablePropTypeUtil.extract( matchingOverride ) ?? undefined }
-				componentInstanceElement={ componentInstanceElement }
+		// <div style={ { border: '1px solid pink' } }>
+		// 	<p>
+		// 		Override Prop Control :{ overridableProp.label }: { overridableProp.propKey }
+		// 	</p>
+		<OverridablePropProvider
+			value={ componentOverridablePropTypeUtil.extract( matchingOverride ) ?? undefined }
+			componentInstanceElement={ componentInstanceElement }
+		>
+			<ElementProvider
+				element={ { id: elementId, type } }
+				elementType={ elementType }
+				settings={ resolvedSettings as Record< string, AnyTransformable | null > }
 			>
-				<ElementProvider
-					element={ { id: elementId, type } }
-					elementType={ elementType }
-					settings={ resolvedSettings as Record< string, AnyTransformable | null > }
-				>
-					<SettingsField
-						bind={ propKey }
-						propDisplayName={ overridableProp.label }
-						customSetValue={ setValue }
-					>
-						<PropProvider propType={ propTypeSchema } value={ value } setValue={ setValue }>
-						{ /* <PropProvider propType={ propTypeSchema } value={ value } setValue={ setValue }>
-						<PropKeyProvider bind={ overridableProp.overrideKey }> */ }
+				<SettingsField bind={ propKey } propDisplayName={ overridableProp.label } customSetValue={ setValue }>
+					<ControlReplacementValueProvider value={ value } bind={ propKey }>
 						<ControlReplacementsProvider replacements={ controlReplacements }>
 							<Box mb={ 1.5 }>
 								<ControlTypeContainer layout={ layout }>
@@ -299,12 +301,11 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 								</ControlTypeContainer>
 							</Box>
 						</ControlReplacementsProvider>
-						{ /* </PropKeyProvider>
-					</PropProvider> */ }
-					</SettingsField>
-				</ElementProvider>
-			</OverridablePropProvider>
-		</div>
+					</ControlReplacementValueProvider>
+				</SettingsField>
+			</ElementProvider>
+		</OverridablePropProvider>
+		// </div>
 	);
 }
 
@@ -416,4 +417,22 @@ function isValidOverride( overridableProps: OverridableProps, override: Componen
 		: override.value.override_key;
 
 	return !! overridableProps.props[ overridableKey ];
+}
+
+function ControlReplacementValueProvider( {
+	value,
+	bind,
+	children,
+}: {
+	value: OverridesSchema;
+	bind: string;
+	children: React.ReactNode;
+} ) {
+	const propContext = usePropContext();
+
+	return (
+		<PropProvider { ...propContext } value={ value }>
+			<PropKeyProvider bind={ bind }>{ children }</PropKeyProvider>
+		</PropProvider>
+	);
 }

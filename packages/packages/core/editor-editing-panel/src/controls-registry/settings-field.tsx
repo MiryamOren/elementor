@@ -103,31 +103,31 @@ export const SettingsField = ( { bind, children, propDisplayName, customSetValue
 	const setValueRef = useRef( setValue );
 	setValueRef.current = setValue;
 
-	useEffect( () => {
-		const elementSettingsForDepCheck = getElementSettingsWithDefaults( propsSchema, currentElementSettings );
-		const bindPropType = propsSchema[ bind ];
-		const depCheck = isDependencyMet( bindPropType?.dependencies, elementSettingsForDepCheck );
+	// useEffect( () => {
+	// 	const elementSettingsForDepCheck = getElementSettingsWithDefaults( propsSchema, currentElementSettings );
+	// 	const bindPropType = propsSchema[ bind ];
+	// 	const depCheck = isDependencyMet( bindPropType?.dependencies, elementSettingsForDepCheck );
 
-		if ( depCheck.isMet ) {
-			return;
-		}
+	// 	if ( depCheck.isMet ) {
+	// 		return;
+	// 	}
 
-		const failingTerm = depCheck.failingDependencies[ 0 ];
-		const shouldHaveNewValue = ! isDependency( failingTerm ) && Boolean( failingTerm?.newValue );
+	// 	const failingTerm = depCheck.failingDependencies[ 0 ];
+	// 	const shouldHaveNewValue = ! isDependency( failingTerm ) && Boolean( failingTerm?.newValue );
 
-		if ( ! shouldHaveNewValue ) {
-			return;
-		}
+	// 	if ( ! shouldHaveNewValue ) {
+	// 		return;
+	// 	}
 
-		const newValue = failingTerm.newValue as Value;
-		const currentValue = currentElementSettings?.[ bind ];
+	// 	const newValue = failingTerm.newValue as Value;
+	// 	const currentValue = currentElementSettings?.[ bind ];
 
-		if ( JSON.stringify( currentValue ) === JSON.stringify( newValue ) ) {
-			return;
-		}
+	// 	if ( JSON.stringify( currentValue ) === JSON.stringify( newValue ) ) {
+	// 		return;
+	// 	}
 
-		setValueRef.current( { [ bind ]: newValue }, undefined, { withHistory: false } );
-	}, [ currentElementSettings, bind, propsSchema ] );
+	// 	setValueRef.current( { [ bind ]: newValue }, undefined, { withHistory: false } );
+	// }, [ currentElementSettings, bind, propsSchema ] );
 
 	if ( isHidden ) {
 		return null;
