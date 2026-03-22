@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { PropKeyProvider, PropProvider, type SetValueMeta } from '@elementor/editor-controls';
 import { setDocumentModifiedStatus } from '@elementor/editor-documents';
 import { type ElementID, getElementLabel, getElementSettings, updateElementSettings } from '@elementor/editor-elements';
@@ -100,22 +100,34 @@ export const SettingsField = ( { bind, children, propDisplayName, customSetValue
 		]
 	);
 
+	const setValueRef = useRef( setValue );
+	setValueRef.current = setValue;
+
 	useEffect( () => {
 		const elementSettingsForDepCheck = getElementSettingsWithDefaults( propsSchema, currentElementSettings );
-		const propType2 = propsSchema[ bind ];
-		const depCheck = isDependencyMet( propType2?.dependencies, elementSettingsForDepCheck );
-		const shouldHaveNewValue =
-			! depCheck.isMet &&
-			! isDependency( depCheck.failingDependencies[ 0 ] ) &&
-			Boolean( depCheck.failingDependencies[ 0 ]?.newValue );
+		const bindPropType = propsSchema[ bind ];
+		const depCheck = isDependencyMet( bindPropType?.dependencies, elementSettingsForDepCheck );
 
-		const a = shouldHaveNewValue;
-		console.log( a );
-		if ( shouldHaveNewValue ) {
-			const newValue = depCheck.failingDependencies[ 0 ].newValue as Value;
-			setValue( { [ bind ]: newValue }, undefined, { withHistory: false } );
+		if ( depCheck.isMet ) {
+			return;
 		}
-	}, [ currentElementSettings, bind, propsSchema, setValue ] );
+
+		const failingTerm = depCheck.failingDependencies[ 0 ];
+		const shouldHaveNewValue = ! isDependency( failingTerm ) && Boolean( failingTerm?.newValue );
+
+		if ( ! shouldHaveNewValue ) {
+			return;
+		}
+
+		const newValue = failingTerm.newValue as Value;
+		const currentValue = currentElementSettings?.[ bind ];
+
+		if ( JSON.stringify( currentValue ) === JSON.stringify( newValue ) ) {
+			return;
+		}
+
+		setValueRef.current( { [ bind ]: newValue }, undefined, { withHistory: false } );
+	}, [ currentElementSettings, bind, propsSchema ] );
 
 	if ( isHidden ) {
 		return null;

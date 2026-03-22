@@ -18,5 +18,12 @@ export const getPropTypeForComponentOverride = ( overridableProp: OverridablePro
 function getPropType( { widgetType, propKey }: Pick< OriginPropFields, 'widgetType' | 'propKey' > ) {
 	const widgetPropsSchema = getWidgetsCache()?.[ widgetType ]?.atomic_props_schema;
 
-	return widgetPropsSchema?.[ propKey ];
+	const propType = widgetPropsSchema?.[ propKey ];
+
+	if ( ! propType ) {
+		console.log( 'no prop type', propKey );
+		return undefined;
+	}
+
+	return propType;
 }
