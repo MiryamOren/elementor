@@ -10,7 +10,7 @@ import {
 } from '@elementor/editor-props';
 import { getSessionStorageItem, removeSessionStorageItem, setSessionStorageItem } from '@elementor/session';
 
-type Value = TransformablePropValue< string > | null;
+export type Value = TransformablePropValue< string > | null;
 
 export type Values = Record< string, Value >;
 

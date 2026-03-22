@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { PropKeyProvider, PropProvider, type SetValueMeta } from '@elementor/editor-controls';
 import { setDocumentModifiedStatus } from '@elementor/editor-documents';
 import { type ElementID, getElementLabel, getElementSettings, updateElementSettings } from '@elementor/editor-elements';
@@ -20,6 +20,7 @@ import {
 	extractOrderedDependencies,
 	getElementSettingsWithDefaults,
 	getUpdatedValues,
+	type Value,
 	type Values,
 } from '../utils/prop-dependency-utils';
 import { createTopLevelObjectType } from './create-top-level-object-type';
@@ -41,6 +42,7 @@ const extractDependencyEffect = ( bind: string, propsSchema: PropsSchema, curren
 		! depCheck.isMet &&
 		! isDependency( depCheck.failingDependencies[ 0 ] ) &&
 		depCheck.failingDependencies[ 0 ]?.effect === 'hide';
+
 	return {
 		isDisabled: ( prop: PropType ) => {
 			const result = ! isDependencyMet( prop?.dependencies, elementSettingsForDepCheck ).isMet;
@@ -66,33 +68,62 @@ export const SettingsField = ( { bind, children, propDisplayName, customSetValue
 		elementId,
 		propDisplayName,
 	} );
+
 	const { isDisabled, isHidden, settingsWithDefaults } = extractDependencyEffect(
 		bind,
 		propsSchema,
 		currentElementSettings
 	);
+
+	const setValue = useCallback(
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		( newValue: Values, _: CreateOptions = {}, meta?: SetValueMeta ) => {
+			const { withHistory = true } = meta ?? {};
+			const dependents = extractOrderedDependencies( dependenciesPerTargetMapping );
+
+			const settings = getUpdatedValues( newValue, dependents, propsSchema, settingsWithDefaults, elementId );
+			if ( customSetValue ) {
+				customSetValue( settings );
+			} else if ( withHistory ) {
+				undoableUpdateElementProp( settings );
+			} else {
+				updateElementSettings( { id: elementId, props: settings, withHistory: false } );
+			}
+		},
+		[
+			customSetValue,
+			undoableUpdateElementProp,
+			elementId,
+			dependenciesPerTargetMapping,
+			propsSchema,
+			settingsWithDefaults,
+		]
+	);
+
+	useEffect( () => {
+		const elementSettingsForDepCheck = getElementSettingsWithDefaults( propsSchema, currentElementSettings );
+		const propType2 = propsSchema[ bind ];
+		const depCheck = isDependencyMet( propType2?.dependencies, elementSettingsForDepCheck );
+		const shouldHaveNewValue =
+			! depCheck.isMet &&
+			! isDependency( depCheck.failingDependencies[ 0 ] ) &&
+			Boolean( depCheck.failingDependencies[ 0 ]?.newValue );
+
+		const a = shouldHaveNewValue;
+		console.log( a );
+		if ( shouldHaveNewValue ) {
+			const newValue = depCheck.failingDependencies[ 0 ].newValue as Value;
+			setValue( { [ bind ]: newValue }, undefined, { withHistory: false } );
+		}
+	}, [ currentElementSettings, bind, propsSchema, setValue ] );
+
 	if ( isHidden ) {
 		return null;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const setValue = ( newValue: Values, _: CreateOptions = {}, meta?: SetValueMeta ) => {
-		const { withHistory = true } = meta ?? {};
-		const dependents = extractOrderedDependencies( dependenciesPerTargetMapping );
-
-		const settings = getUpdatedValues( newValue, dependents, propsSchema, settingsWithDefaults, elementId );
-		if ( customSetValue ) {
-			customSetValue( settings );
-		} else if ( withHistory ) {
-			undoableUpdateElementProp( settings );
-		} else {
-			updateElementSettings( { id: elementId, props: settings, withHistory: false } );
-		}
-	};
-
 	return (
 		<PropProvider propType={ propType } value={ value } setValue={ setValue } isDisabled={ isDisabled }>
-			<PropKeyProvider bind={ bind }><div style={{ border: '1px solid pink' }}>{ children }</div></PropKeyProvider>
+			<PropKeyProvider bind={ bind }>{ children }</PropKeyProvider>
 		</PropProvider>
 	);
 };
