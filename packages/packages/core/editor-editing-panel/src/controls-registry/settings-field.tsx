@@ -28,6 +28,7 @@ type SettingsFieldProps = {
 	bind: PropKey;
 	propDisplayName: string;
 	children: React.ReactNode;
+	customSetValue?: ( newValues: Values ) => void;
 };
 
 const HISTORY_DEBOUNCE_WAIT = 800;
@@ -50,7 +51,7 @@ const extractDependencyEffect = ( bind: string, propsSchema: PropsSchema, curren
 	};
 };
 
-export const SettingsField = ( { bind, children, propDisplayName }: SettingsFieldProps ) => {
+export const SettingsField = ( { bind, children, propDisplayName, customSetValue }: SettingsFieldProps ) => {
 	const {
 		element: { id: elementId },
 		elementType: { propsSchema, dependenciesPerTargetMapping = {} },
@@ -80,7 +81,9 @@ export const SettingsField = ( { bind, children, propDisplayName }: SettingsFiel
 		const dependents = extractOrderedDependencies( dependenciesPerTargetMapping );
 
 		const settings = getUpdatedValues( newValue, dependents, propsSchema, settingsWithDefaults, elementId );
-		if ( withHistory ) {
+		if ( customSetValue ) {
+			customSetValue( settings );
+		} else if ( withHistory ) {
 			undoableUpdateElementProp( settings );
 		} else {
 			updateElementSettings( { id: elementId, props: settings, withHistory: false } );
@@ -89,7 +92,7 @@ export const SettingsField = ( { bind, children, propDisplayName }: SettingsFiel
 
 	return (
 		<PropProvider propType={ propType } value={ value } setValue={ setValue } isDisabled={ isDisabled }>
-			<PropKeyProvider bind={ bind }>{ children }</PropKeyProvider>
+			<PropKeyProvider bind={ bind }><div style={{ border: '1px solid pink' }}>{ children }</div></PropKeyProvider>
 		</PropProvider>
 	);
 };
