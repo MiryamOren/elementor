@@ -1,6 +1,12 @@
 import { __createSelector as createSelector, __useSelector as useSelector, type SliceState } from '@elementor/store';
 
-import type { ComponentId, OverridableProps, PublishedComponent, UnpublishedComponent } from '../types';
+import type {
+	ComponentId,
+	OverridableProp,
+	OverridableProps,
+	PublishedComponent,
+	UnpublishedComponent,
+} from '../types';
 import { type slice } from './extensible-slice';
 import { type SanitizeAttributes, SLICE_NAME } from './store-types';
 
@@ -71,6 +77,27 @@ export const selectOverridableProps = createSelector(
 		return component.overridableProps ?? DEFAULT_OVERRIDABLE_PROPS;
 	}
 );
+
+export const selectAllOverridableProps = createSelector(
+	selectData,
+	( components: PublishedComponent[] ): OverridableProps[ 'props' ] => {
+		return components.reduce( ( acc, component ) => {
+			if ( ! component.overridableProps ) {
+				return acc;
+			}
+
+			return {
+				...acc,
+				...component.overridableProps.props,
+			};
+		}, {} );
+	}
+);
+
+export const selectOverridablePropByKey = ( state: ComponentsSlice, overrideKey: string ): OverridableProp | null => {
+	return selectAllOverridableProps( state )[ overrideKey ] ?? null;
+};
+
 export const useOverridableProps = ( componentId: ComponentId | null ) => {
 	return useSelector( ( state: ComponentsSlice ) =>
 		componentId ? selectOverridableProps( state, componentId ) : null

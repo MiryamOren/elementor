@@ -14,8 +14,7 @@ import {
 	type ComponentOverridableProp,
 	componentOverridablePropTypeUtil,
 } from '../prop-types/component-overridable-prop-type';
-import { selectData } from '../store/store';
-import { getOverridableProp } from './get-overridable-prop';
+import { selectData, selectOverridablePropByKey } from '../store/store';
 import { getMatchingOverride } from './overridable-props-utils';
 
 export const resolveOverridePropValue = ( originalPropValue: ComponentInstanceOverride | PropValue ): PropValue => {
@@ -35,49 +34,48 @@ export const resolveOverridePropValue = ( originalPropValue: ComponentInstanceOv
 export function resolveInstanceElementSettings( {
 	elementSettings,
 	overrides,
-	componentId,
 }: {
 	elementSettings: Props;
 	overrides: ComponentInstanceOverridesPropValue;
-	componentId: number;
-} ): { resolvedSettings: Props; overridablePropKeys: Record< string, string > } {
+} ): Props {
 	const resolvedSettings: Props = {};
-	const overridablePropKeys: Record< string, string > = {};
 	const components = selectData( getState() );
 
 	for ( const [ propKey, propValue ] of Object.entries( elementSettings ) ) {
-		resolvedSettings[ propKey ] = unwrapIfOverridable( propValue );
+		const overridable = componentOverridablePropTypeUtil.extract( propValue );
 
-		const isOverridable = componentOverridablePropTypeUtil.isValid( propValue );
-
-		if ( isOverridable ) {
-			const overrideKey = componentOverridablePropTypeUtil.extract( propValue )?.override_key;
-			if ( ! overrideKey ) {
-				resolvedSettings[ propKey ] = unwrapIfOverridable( propValue );
-				continue;
-			}
-
-			overridablePropKeys[ propKey ] = overrideKey;
-
-			const matchingOverride = getMatchingOverride( overrides, overrideKey );
-			const overridableProp = getOverridableProp( { componentId, overrideKey } );
-
-			if ( ! overridableProp ) {
-				resolvedSettings[ propKey ] = unwrapIfOverridable( propValue );
-				console.error( `Overridable prop ${ overrideKey } not found`, { componentId, propKey, propValue } );
-				continue;
-			}
-
-			const recursiveOriginValue = resolveOriginValue( components, matchingOverride, overridableProp );
-			const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
-
-			const resolvedPropValue = resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue;
-			resolvedSettings[ propKey ] = unwrapIfOverridable( resolvedPropValue );
+		if ( ! overridable ) {
+			resolvedSettings[ propKey ] = propValue;
+			continue;
 		}
+
+		const overrideKey = overridable.override_key;
+
+		const matchingOverride = getMatchingOverride( overrides, overrideKey );
+		const overridableProp = selectOverridablePropByKey( getState(), overrideKey );
+
+		if ( ! overridableProp ) {
+			resolvedSettings[ propKey ] = unwrapIfOverridable( propValue );
+			console.error( `Overridable prop ${ overrideKey } not found`, { propKey, propValue } );
+			continue;
+		}
+
+		const recursiveOriginValue = resolveOriginValue( components, matchingOverride, overridableProp );
+		const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
+
+		const resolvedPropValue = resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue;
+		resolvedSettings[ propKey ] = unwrapIfOverridable( resolvedPropValue );
 	}
 
-	return { resolvedSettings, overridablePropKeys };
+	return resolvedSettings;
 }
+
+getMatchingOverrideByElementIdAndPropKey = ( overrides: ComponentInstanceOverridesPropValue, elementId: string, propKey: string ): ComponentInstanceOverride | null => {
+	return overrides.find( ( override ) => {
+		const overridableValue = componentOverridablePropTypeUtil.extract( override );
+		return overridableValue?.override_key === overrideKey;
+	} ) ?? null;
+};
 
 function getOverridableValue( overridableProp: ComponentOverridableProp | null ): PropValue {
 	const overridableValue = componentOverridablePropTypeUtil.extract( overridableProp );

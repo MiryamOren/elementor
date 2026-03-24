@@ -35,4 +35,6 @@ export {
 	extractDependencyEffect,
 	type DependencyEffect,
 	getElementSettingsWithDefaults,
+	getUpdatedValues,
+	extractOrderedDependencies,
 } from './utils/prop-dependency-utils';

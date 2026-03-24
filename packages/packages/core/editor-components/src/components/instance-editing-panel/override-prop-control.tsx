@@ -15,6 +15,9 @@ import {
 	createTopLevelObjectType,
 	ElementProvider,
 	extractDependencyEffect,
+	extractOrderedDependencies,
+	getElementSettingsWithDefaults,
+	getUpdatedValues,
 	isDynamicPropValue,
 	SettingsField,
 	useElement,
@@ -116,20 +119,49 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 	const settings = getElementSettings< AnyTransformable >( elementId, Object.keys( elementType.propsSchema ) );
 	// here we resolve the inner element settings and calculate dependencies (according to inner element resolved settings) for isHidden & isDisabled
 	const resolvedElementSettings = useMemo(
-		() =>
-			resolveInstanceElementSettings( {
-				elementSettings: settings,
-				overrides,
-				componentId,
-			} ),
-		[ settings, overrides, componentId ]
+		() => resolveInstanceElementSettings( { elementSettings: settings, overrides } ),
+		[ settings, overrides ]
 	);
+
+	const resolvedSettingsWithDefaults = getElementSettingsWithDefaults(
+		elementType.propsSchema,
+		resolvedElementSettings
+	);
+
+	const dependents = extractOrderedDependencies( elementType.dependenciesPerTargetMapping ?? {} );
+
+	const settingsWithDepsNewValues = getUpdatedValues(
+		structuredClone( resolvedElementSettings ),
+		dependents,
+		elementType.propsSchema,
+		resolvedSettingsWithDefaults,
+		elementId
+	);
+
+	let propValue = settingsWithDepsNewValues[ propKey ];
+	if ( componentOverridablePropTypeUtil.isValid( matchingOverride ) ) {
+		propValue = componentOverridablePropTypeUtil.create( {
+			override_key: overridableProp.overrideKey,
+			origin_value: settingsWithDepsNewValues[ propKey ],
+		} );
+	}
 
 	const { isDisabled, isHidden } = extractDependencyEffect(
 		propKey,
 		elementType.propsSchema,
-		resolvedElementSettings.resolvedSettings
+		settingsWithDepsNewValues
 	);
+
+	console.log( {
+		elementType: elementType.title,
+		elementId,
+		settings,
+		overrides,
+		resolvedElementSettings,
+		settingsWithDepsNewValues,
+		propValue,
+		isHidden,
+	} );
 
 	if ( isHidden ) {
 		return null;
@@ -140,8 +172,6 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 	if ( ! propType ) {
 		return null;
 	}
-
-	const propValue = resolvedElementSettings.resolvedSettings[ propKey ];
 
 	const value = {
 		[ overridableProp.overrideKey ]: propValue,

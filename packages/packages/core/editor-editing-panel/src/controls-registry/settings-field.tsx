@@ -48,6 +48,7 @@ export const SettingsField = ( { bind, children, propDisplayName }: SettingsFiel
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const setValue = ( newValue: Values, _: CreateOptions = {}, meta?: SetValueMeta ) => {
+		console.log(newValue);
 		const { withHistory = true } = meta ?? {};
 		const dependents = extractOrderedDependencies( dependenciesPerTargetMapping );
 
