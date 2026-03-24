@@ -14,7 +14,7 @@ export function useResolvedOriginValue( override: ComponentInstanceOverride | nu
 	return resolveOriginValue( components, override, overridableProp );
 }
 
-function resolveOriginValue(
+export function resolveOriginValue(
 	components: PublishedComponent[],
 	matchingOverride: ComponentInstanceOverride | null,
 	overridableProp: OverridableProp
