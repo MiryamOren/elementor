@@ -124,9 +124,9 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 				overrides,
 				overridableProps,
 				originElementId,
-				innerElementContainer: element,
+				innerElementId: elementId,
 			} ),
-		[ settings, overrides, overridableProps, originElementId, element ]
+		[ settings, overrides, overridableProps, originElementId, elementId ]
 	);
 
 	const resolvedSettingsWithDefaults = getElementSettingsWithDefaults(
@@ -144,13 +144,13 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 		elementId
 	);
 
-	let propValue = settingsWithDepsNewValues[ propKey ];
-	if ( componentOverridablePropTypeUtil.isValid( matchingOverride ) ) {
-		propValue = componentOverridablePropTypeUtil.create( {
-			override_key: overridableProp.overrideKey,
-			origin_value: settingsWithDepsNewValues[ propKey ],
-		} );
-	}
+	const propValue = settingsWithDepsNewValues[ propKey ];
+	// if ( componentOverridablePropTypeUtil.isValid( matchingOverride ) ) {
+	// 	propValue = componentOverridablePropTypeUtil.create( {
+	// 		override_key: overridableProp.overrideKey,
+	// 		origin_value: settingsWithDepsNewValues[ propKey ],
+	// 	} );
+	// }
 
 	const { isDisabled, isHidden } = extractDependencyEffect(
 		propKey,

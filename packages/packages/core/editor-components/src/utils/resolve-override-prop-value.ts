@@ -1,4 +1,4 @@
-import { type V1Element } from '@elementor/editor-elements';
+import { getContainer, type V1Element } from '@elementor/editor-elements';
 import { type Props, type PropValue } from '@elementor/editor-props';
 import { __getState as getState } from '@elementor/store';
 
@@ -40,13 +40,13 @@ export function resolveInstanceElementSettings( {
 	overrides,
 	overridableProps,
 	originElementId,
-	innerElementContainer,
+	innerElementId,
 }: {
 	elementSettings: Props;
 	overrides: ComponentInstanceOverridesPropValue;
 	overridableProps: OverridableProps;
 	originElementId: string;
-	innerElementContainer: V1Element;
+	innerElementId: string;
 } ): Props {
 	const resolvedSettings: Props = {};
 	const components = selectData( getState() );
@@ -72,6 +72,10 @@ export function resolveInstanceElementSettings( {
 			continue;
 		}
 
+		const innerElementContainer = getContainer( innerElementId );
+		if ( ! innerElementContainer ) {
+			throw new Error( `Inner element container not found for ${ innerElementId }` );
+		}
 		const intermediateOverrideValue = resolveFromIntermediateComponent(
 			innerElementContainer,
 			overridable.override_key
