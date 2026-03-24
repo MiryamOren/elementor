@@ -1,7 +1,9 @@
+import { type V1Element } from '@elementor/editor-elements';
 import { type Props, type PropValue } from '@elementor/editor-props';
 import { __getState as getState } from '@elementor/store';
 
 import { resolveOriginValue } from '../components/instance-editing-panel/use-resolved-origin-value';
+import { COMPONENT_WIDGET_TYPE } from '../consts';
 import {
 	type ComponentInstanceOverrideProp,
 	componentInstanceOverridePropTypeUtil,
@@ -10,11 +12,13 @@ import {
 	type ComponentInstanceOverride,
 	type ComponentInstanceOverridesPropValue,
 } from '../prop-types/component-instance-overrides-prop-type';
+import { componentInstancePropTypeUtil } from '../prop-types/component-instance-prop-type';
 import {
 	type ComponentOverridableProp,
 	componentOverridablePropTypeUtil,
 } from '../prop-types/component-overridable-prop-type';
-import { selectData, selectOverridablePropByKey } from '../store/store';
+import { selectData } from '../store/store';
+import { type OverridableProp, type OverridableProps } from '../types';
 import { getMatchingOverride } from './overridable-props-utils';
 
 export const resolveOverridePropValue = ( originalPropValue: ComponentInstanceOverride | PropValue ): PropValue => {
@@ -34,9 +38,15 @@ export const resolveOverridePropValue = ( originalPropValue: ComponentInstanceOv
 export function resolveInstanceElementSettings( {
 	elementSettings,
 	overrides,
+	overridableProps,
+	originElementId,
+	innerElementContainer,
 }: {
 	elementSettings: Props;
 	overrides: ComponentInstanceOverridesPropValue;
+	overridableProps: OverridableProps;
+	originElementId: string;
+	innerElementContainer: V1Element;
 } ): Props {
 	const resolvedSettings: Props = {};
 	const components = selectData( getState() );
@@ -49,33 +59,89 @@ export function resolveInstanceElementSettings( {
 			continue;
 		}
 
-		const overrideKey = overridable.override_key;
+		const overridableProp = findOverridablePropByOrigin( overridableProps, originElementId, propKey );
 
-		const matchingOverride = getMatchingOverride( overrides, overrideKey );
-		const overridableProp = selectOverridablePropByKey( getState(), overrideKey );
+		if ( overridableProp ) {
+			const matchingOverride = getMatchingOverride( overrides, overridableProp.overrideKey );
+			const recursiveOriginValue = resolveOriginValue( components, matchingOverride, overridableProp );
+			const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
 
-		if ( ! overridableProp ) {
-			resolvedSettings[ propKey ] = unwrapIfOverridable( propValue );
-			console.error( `Overridable prop ${ overrideKey } not found`, { propKey, propValue } );
+			resolvedSettings[ propKey ] = unwrapIfOverridable(
+				resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue
+			);
 			continue;
 		}
 
-		const recursiveOriginValue = resolveOriginValue( components, matchingOverride, overridableProp );
-		const resolvedOverrideValue = matchingOverride ? resolveOverridePropValue( matchingOverride ) : null;
-
-		const resolvedPropValue = resolvedOverrideValue ?? recursiveOriginValue ?? overridableProp.originValue;
-		resolvedSettings[ propKey ] = unwrapIfOverridable( resolvedPropValue );
+		const intermediateOverrideValue = resolveFromIntermediateComponent(
+			innerElementContainer,
+			overridable.override_key
+		);
+		resolvedSettings[ propKey ] = intermediateOverrideValue ?? unwrapIfOverridable( propValue );
 	}
 
 	return resolvedSettings;
 }
 
-getMatchingOverrideByElementIdAndPropKey = ( overrides: ComponentInstanceOverridesPropValue, elementId: string, propKey: string ): ComponentInstanceOverride | null => {
-	return overrides.find( ( override ) => {
-		const overridableValue = componentOverridablePropTypeUtil.extract( override );
-		return overridableValue?.override_key === overrideKey;
-	} ) ?? null;
-};
+function resolveFromIntermediateComponent(
+	container: V1Element,
+	overrideKey: string,
+	lastResolvedValue: PropValue | null = null
+): PropValue | null {
+	const parentComponentInstance = findNearestParentComponentInstance( container );
+
+	if ( ! parentComponentInstance ) {
+		return lastResolvedValue;
+	}
+
+	const componentInstanceSetting = parentComponentInstance.settings.get( 'component_instance' );
+	const instanceData = componentInstancePropTypeUtil.extract( componentInstanceSetting );
+	const intermediateOverrides = instanceData?.overrides?.value;
+	const matchingOverride = intermediateOverrides ? getMatchingOverride( intermediateOverrides, overrideKey ) : null;
+
+	if ( ! matchingOverride ) {
+		return lastResolvedValue;
+	}
+
+	const overridableValue = componentOverridablePropTypeUtil.extract( matchingOverride );
+
+	if ( overridableValue ) {
+		const resolved = resolveOverridePropValue( matchingOverride );
+		const updatedValue = resolved ?? lastResolvedValue;
+
+		return resolveFromIntermediateComponent( parentComponentInstance, overridableValue.override_key, updatedValue );
+	}
+
+	return resolveOverridePropValue( matchingOverride );
+}
+
+function findNearestParentComponentInstance( container: V1Element ): V1Element | null {
+	let current = container.parent;
+
+	while ( current ) {
+		const widgetType = current.model.get( 'widgetType' );
+
+		if ( widgetType === COMPONENT_WIDGET_TYPE ) {
+			return current;
+		}
+
+		current = current.parent;
+	}
+
+	return null;
+}
+
+function findOverridablePropByOrigin(
+	overridableProps: OverridableProps,
+	originElementId: string,
+	propKey: string
+): OverridableProp | null {
+	return (
+		Object.values( overridableProps.props ).find( ( prop ) => {
+			const origin = prop.originPropFields ?? prop;
+			return origin.elementId === originElementId && origin.propKey === propKey;
+		} ) ?? null
+	);
+}
 
 function getOverridableValue( overridableProp: ComponentOverridableProp | null ): PropValue {
 	const overridableValue = componentOverridablePropTypeUtil.extract( overridableProp );

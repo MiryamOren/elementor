@@ -117,10 +117,16 @@ function OverrideControl( { overridableProp }: InternalProps ) {
 	}
 
 	const settings = getElementSettings< AnyTransformable >( elementId, Object.keys( elementType.propsSchema ) );
-	// here we resolve the inner element settings and calculate dependencies (according to inner element resolved settings) for isHidden & isDisabled
 	const resolvedElementSettings = useMemo(
-		() => resolveInstanceElementSettings( { elementSettings: settings, overrides } ),
-		[ settings, overrides ]
+		() =>
+			resolveInstanceElementSettings( {
+				elementSettings: settings,
+				overrides,
+				overridableProps,
+				originElementId,
+				innerElementContainer: element,
+			} ),
+		[ settings, overrides, overridableProps, originElementId, element ]
 	);
 
 	const resolvedSettingsWithDefaults = getElementSettingsWithDefaults(
