@@ -2,14 +2,24 @@ import { invalidateDocumentData, switchToDocument } from '@elementor/editor-docu
 import { getCurrentDocumentContainer, selectElement } from '@elementor/editor-elements';
 import { __privateRunCommand as runCommand } from '@elementor/editor-v1-adapters';
 
+import { loadComponentsOverridableProps } from '../store/actions/load-components-overridable-props';
+import { getComponentDocumentData } from './component-document-data';
+
 export async function switchToComponent(
 	componentId: number,
 	componentInstanceId?: string | null,
 	element?: HTMLElement | null
 ) {
+	const document = await getComponentDocumentData( componentId );
+	console.log( document );
+	// @ts-ignore
+	const isComponent = document?.type === 'elementor_component';
 	const selector = getSelector( element, componentInstanceId );
 
-	invalidateDocumentData( componentId );
+	if ( isComponent ) {
+		invalidateDocumentData( componentId );
+		await loadComponentsOverridableProps( [ componentId ], { force: true } );
+	}
 
 	await switchToDocument( componentId, {
 		selector,
@@ -18,12 +28,14 @@ export async function switchToComponent(
 		shouldScroll: false,
 	} );
 
-	const currentDocumentContainer = getCurrentDocumentContainer();
-	const topLevelElement = currentDocumentContainer?.children?.[ 0 ];
+	if ( isComponent ) {
+		const currentDocumentContainer = getCurrentDocumentContainer();
+		const topLevelElement = currentDocumentContainer?.children?.[ 0 ];
 
-	if ( topLevelElement ) {
-		selectElement( topLevelElement.id );
-		expandNavigator();
+		if ( topLevelElement ) {
+			selectElement( topLevelElement.id );
+			expandNavigator();
+		}
 	}
 }
 
